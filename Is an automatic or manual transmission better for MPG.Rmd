@@ -1,0 +1,143 @@
+---
+title: "Is automatic or manual transmission better for MPG?"
+author: "Chris Lill"
+output: pdf_document
+---
+
+# Executive Summary
+
+After adjusting for weight and horsepower, the
+
+# Exploratory Data Analysis
+The boxplot below shows that there is a correlation between transmission and miles per gallon (mpg). However, this result may be explained by other variables so we need to determine which have the best correlation. 
+
+The scatterplot below shows a good correlation between weight(wt) and mpg. It also shows that weight and transmission are correlated, so automatic gearboxes tend to be used on heavier cars. 
+
+The table in appendix 1 shows that in a linear regression model of mpg containing all other factors, weight is the most significant. There is only a 6% probability that it has no effect on mpg.
+
+```{r Exploratory, echo=FALSE, out.width=".5\\textwidth"}
+require(ggplot2, quietly = TRUE)
+require(knitr, quietly = TRUE)
+require(gridExtra, quietly = TRUE)
+data(mtcars)
+
+mtcars$am <- factor(mtcars$am, labels = c("automatic", "manual"))
+mtcars$cyl <- factor(mtcars$cyl)
+mtcars$vs <- factor(mtcars$vs, labels = c("v", "straight"))
+mtcars$gear <- factor(mtcars$gear)
+mtcars$carb <- factor(mtcars$carb)
+g1 <- ggplot(mtcars, aes(x = factor(am), y = mpg)) +
+  geom_boxplot() +
+  ggtitle("Correlation between Transmission and MPG")
+g1
+
+g2 <- ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(aes(colour = am)) +
+  ggtitle("MPG by Weight and Transmission")
+g2
+
+```
+
+
+# Model Selection
+To select the most appropriate model, we will select `wt` as the first factor and add other factors incrementally. We'll build a new linear regression model each time and use Anova to see whether the new factor is a significant improvement.
+
+The table below shows that the models with the most significant additional factors are `mpg ~ wt + hp` and `mpg ~ wt * hp`. We will select the `mpg ~ wt + hp` model so that we avoid overfitting on a dataset that only has 32 observations. 
+
+Figure 3 in the Appendix shows residual diagnostics for this model, which shows that this is a reasonable model given the small dataset, however the fit is not perfect and the residuals are not normally distributed with a couple of outliers.
+
+
+# Results
+## Is an automatic or manual transmission better for MPG
+To visualise the difference between an automatic and manual transmission we can plot the residuals from our model against transmission(am). 
+
+Assume constant variance
+
+```{r Result1, echo = FALSE}
+fit.wt.hp <- lm(mpg ~ wt + hp, data = mtcars)
+
+boxplot(resid(fit.wt.hp) ~ mtcars$am)
+title("Effect of transmission" )
+
+#t.test(resid(fit.wtxhp), mtcars$am == "manual")
+```
+
+
+\pagebreak
+
+# Appendix
+## Appendix 1: Regression model for mpg with all factors
+```{r AllTerms, echo = FALSE}
+data(mtcars)
+fit.all <- lm(mpg ~ ., data = mtcars)
+kable(summary(fit.all)$coef[,c(1,4)], 
+      digits = 2,
+      col.names = c("Coefficient", "P-value"),
+      caption = "Coefficients and significance for each factor")
+mtcars$am <- factor(mtcars$am, labels = c("automatic", "manual"))
+mtcars$cyl <- factor(mtcars$cyl)
+```
+
+## Appendix 2: Comparison of different regression models for mpg
+```{r ModelSelection, echo = FALSE}
+suppressMessages(require(dplyr, quietly = TRUE))
+
+# First, generate the models for comparison
+fit.wt <- lm(mpg ~ wt, data = mtcars)
+fit.wt.am <- lm(mpg ~ wt + am, data = mtcars)
+fit.wt.cyl <- lm(mpg ~ wt + factor(cyl), data = mtcars)
+fit.wt.disp <- lm(mpg ~ wt + disp, data = mtcars)
+fit.wt.hp <- lm(mpg ~ wt + hp, data = mtcars)
+fit.wtxhp <- lm(mpg ~ wt * hp, data = mtcars)
+fit.wt.hp.am <- lm(mpg ~ wt + hp + am, data = mtcars)
+fit.wt.hp.cyl <- lm(mpg ~ wt + hp + factor(cyl), data = mtcars)
+fit.wt.hp.disp <- lm(mpg ~ wt + hp + disp, data = mtcars)
+fit.wt.hp.drat <- lm(mpg ~ wt + hp + drat, data = mtcars)
+fit.wt.hp.qsec <- lm(mpg ~ wt + hp + qsec, data = mtcars)
+fit.wt.hp.vs <- lm(mpg ~ wt + hp + factor(vs), data = mtcars)
+fit.wt.hp.gear <- lm(mpg ~ wt + hp + factor(gear), data = mtcars)
+fit.wt.hp.carb <- lm(mpg ~ wt + hp + factor(carb), data = mtcars)
+
+
+
+alt.terms <-c ("mpg ~ wt + am",
+              "mpg ~ wt + factor(cyl)", 
+              "mpg ~ wt + disp", 
+              "mpg ~ wt + hp", 
+              "mpg ~ wt * hp",
+              "mpg ~ wt + hp + am",
+              "mpg ~ wt + hp + factor(cyl)",
+              "mpg ~ wt + hp + disp",
+              "mpg ~ wt + hp + drat",
+              "mpg ~ wt + hp + qsec",
+              "mpg ~ wt + hp + factor(vs)",
+              "mpg ~ wt + hp + factor(gear)",
+              "mpg ~ wt + hp + factor(carb)")
+base.terms <- c(rep("mpg ~ wt", 4), rep("mpg ~ wt + hp", 9))
+p.value <- c(anova(fit.wt, fit.wt.am)$`Pr(>F)`[2],
+             anova(fit.wt, fit.wt.cyl)$`Pr(>F)`[2],
+             anova(fit.wt, fit.wt.disp)$`Pr(>F)`[2],
+             anova(fit.wt, fit.wt.hp)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wtxhp)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.am)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.cyl)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.disp)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.drat)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.qsec)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.vs)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.gear)$`Pr(>F)`[2],
+             anova(fit.wt.hp, fit.wt.hp.carb)$`Pr(>F)`[2])
+model.signif <- data.frame(alt.terms, base.terms, p.value)
+
+kable(model.signif, 
+      digits = 3,
+      col.names = c("Possible model", "Compared with", "P-value"),
+      caption = "Significance of additional factor in each model")
+```
+
+## Appendix 3 - Residual diagnostics for mpg ~ wt + hp
+```{r ResidualDiagnostics, echo = FALSE, fig.height=8}
+par(mfrow = c(2, 2))
+plot(fit.wt.hp)
+```
+
