@@ -6,10 +6,11 @@ output: pdf_document
 
 # Executive Summary
 
-After adjusting for weight and horsepower, the
+Regression modelling shows that weight and horsepower have the greatest impact on miles per gallon (MPG). Holding these constant, there is a 95% probability that the effect of the transmission is between -2.8 and 0.9 MPG. There is no significant difference between MPG for an automatic and manual transmission.
+
 
 # Exploratory Data Analysis
-The boxplot below shows that there is a correlation between transmission and miles per gallon (mpg). However, this result may be explained by other variables so we need to determine which have the best correlation. 
+The boxplot below shows that there is a correlation between transmission and miles per gallon. However, this result may be explained by other variables so we need to determine which have the best correlation. 
 
 The scatterplot below shows a good correlation between weight(wt) and mpg. It also shows that weight and transmission are correlated, so automatic gearboxes tend to be used on heavier cars. 
 
@@ -17,8 +18,6 @@ The table in appendix 1 shows that in a linear regression model of mpg containin
 
 ```{r Exploratory, echo=FALSE, out.width=".5\\textwidth"}
 require(ggplot2, quietly = TRUE)
-require(knitr, quietly = TRUE)
-require(gridExtra, quietly = TRUE)
 data(mtcars)
 
 mtcars$am <- factor(mtcars$am, labels = c("automatic", "manual"))
@@ -51,15 +50,25 @@ Figure 3 in the Appendix shows residual diagnostics for this model, which shows 
 ## Is an automatic or manual transmission better for MPG
 To visualise the difference between an automatic and manual transmission we can plot the residuals from our model against transmission(am). 
 
-Assume constant variance
+Out hypothesis is that there is a difference between the means of MPG for automatic and manual cars. This can be carried out with a two sided t-Test assuming equal variance. Note that the correct calculation would have 28 degrees of freedom, subtracting 2 for the model and 2 for the t-test. However the results are so clear that we don't need to do the additional math.
 
-```{r Result1, echo = FALSE}
+The results show a 95% confidence interval for the difference between -2.8 and 0.9, with a p-value of 0.32. Therefore we fail to reject the null hypothesis, and conclude that there is no significant difference between automatic and manual transmission.
+
+```{r Result1}
 fit.wt.hp <- lm(mpg ~ wt + hp, data = mtcars)
 
 boxplot(resid(fit.wt.hp) ~ mtcars$am)
 title("Effect of transmission" )
 
-#t.test(resid(fit.wtxhp), mtcars$am == "manual")
+t <- t.test(resid(fit.wt.hp) ~ mtcars$am, var.equal = TRUE)
+t$conf[1:2]
+```
+
+## Quantify the MPG difference between automatic and manual transmissions
+Assuming our model of `mpg ~ wt + hp`, the difference between the mean of the residuals for the groups is 0.9 mpg, with automatic transmissions showing as marginally better.
+
+```{r Result2}
+t$estimate["mean in group automatic"] - t$estimate["mean in group manual"]
 ```
 
 
@@ -68,6 +77,8 @@ title("Effect of transmission" )
 # Appendix
 ## Appendix 1: Regression model for mpg with all factors
 ```{r AllTerms, echo = FALSE}
+require(knitr, quietly = TRUE)
+
 data(mtcars)
 fit.all <- lm(mpg ~ ., data = mtcars)
 kable(summary(fit.all)$coef[,c(1,4)], 
