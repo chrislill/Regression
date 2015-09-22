@@ -6,11 +6,11 @@ output: pdf_document
 
 # Executive Summary
 
-Regression modelling shows that weight and horsepower have the greatest impact on miles per gallon (MPG). Holding these constant, there is a 95% probability that the effect of the transmission is between -2.8 and 0.9 MPG. There is no significant difference between MPG for an automatic and manual transmission.
+Regression modelling of the mtcars dataset from 1974 shows that weight and horsepower have the greatest impact on miles per gallon (MPG). Holding these constant, there is a 95% probability that the effect of the transmission is between -2.8 and 0.9 MPG. There is no significant difference between MPG for an automatic and manual transmission.
 
 
 # Exploratory Data Analysis
-The boxplot below shows that there is a correlation between transmission and miles per gallon. However, this result may be explained by other variables so we need to determine which have the best correlation. 
+The boxplot below shows that there is a correlation between transmission and miles per gallon. However, this result may be explained by other variables so we need to determine which have the most significant correlation. 
 
 The scatterplot below shows a good correlation between weight(wt) and mpg. It also shows that weight and transmission are correlated, so automatic gearboxes tend to be used on heavier cars. 
 
@@ -27,12 +27,15 @@ mtcars$gear <- factor(mtcars$gear)
 mtcars$carb <- factor(mtcars$carb)
 g1 <- ggplot(mtcars, aes(x = factor(am), y = mpg)) +
   geom_boxplot() +
-  ggtitle("Correlation between Transmission and MPG")
+  ggtitle("Correlation between Transmission and MPG") + 
+  xlab("transmission")
 g1
 
 g2 <- ggplot(mtcars, aes(x = wt, y = mpg)) +
   geom_point(aes(colour = am)) +
-  ggtitle("MPG by Weight and Transmission")
+  ggtitle("MPG by Weight and Transmission") + 
+  xlab("weight") + 
+  scale_colour_discrete(name = "transmission")
 g2
 
 ```
@@ -41,31 +44,29 @@ g2
 # Model Selection
 To select the most appropriate model, we will select `wt` as the first factor and add other factors incrementally. We'll build a new linear regression model each time and use Anova to see whether the new factor is a significant improvement.
 
-The table below shows that the models with the most significant additional factors are `mpg ~ wt + hp` and `mpg ~ wt * hp`. We will select the `mpg ~ wt + hp` model so that we avoid overfitting on a dataset that only has 32 observations. 
+The table in appendix 2 shows that the models with the most significant additional factors are `mpg ~ wt + hp` and `mpg ~ wt * hp`. We will select the `mpg ~ wt + hp` model so that we avoid overfitting on a dataset that only has 32 observations. 
 
-Figure 3 in the Appendix shows residual diagnostics for this model, which shows that this is a reasonable model given the small dataset, however the fit is not perfect and the residuals are not normally distributed with a couple of outliers.
+The residal diagnostic plots in appendix 3 show that `mpg ~ wt + hp` is a reasonable model given the small dataset. Possible issues with the model are that the Q-Q plot shows that the residuals are not normally distributed, and the plot of residuals vs leverage shows some outliers with high leverage.
 
 
 # Results
 ## Is an automatic or manual transmission better for MPG
-To visualise the difference between an automatic and manual transmission we can plot the residuals from our model against transmission(am). 
+To visualise the difference between an automatic and manual transmission we can plot the residuals from our model against transmission(am). The boxplot in appendix 4 shows that there is a sizeable overlap between the automatic and manual data, when holding weight and horsepower constant. This suggests that there is no significant difference between the two groups.
 
-Out hypothesis is that there is a difference between the means of MPG for automatic and manual cars. This can be carried out with a two sided t-Test assuming equal variance. Note that the correct calculation would have 28 degrees of freedom, subtracting 2 for the model and 2 for the t-test. However the results are so clear that we don't need to do the additional math.
+For a more rigorous approach we can test the hypothesis that there is a difference between the means of MPG for automatic and manual cars. The null hypothesis is that there is no difference. This can be calculated with a two sided t-Test assuming equal variance. 
 
-The results show a 95% confidence interval for the difference between -2.8 and 0.9, with a p-value of 0.32. Therefore we fail to reject the null hypothesis, and conclude that there is no significant difference between automatic and manual transmission.
+The results show that the 95% confidence interval for the difference is from -2.8 to 0.9, with a p-value of 0.32. Therefore we fail to reject the null hypothesis, and conclude that there is no significant difference in MPG between cars with an automatic and manual transmission, holding weight and horsepower constant.
+
+Note that this calculation is slightly conservative because it assumes 30 degrees of freedom. The correct calculation would have 28 degrees of freedom, calculated as 32 observations less 2 for the model and 2 for the t-test. Inspection of old-fashioned t-statistic tables shows that the t-statistic is 2.048 for 28df, compared with 2.042 for 30df. Therefore this error is less than 1% and can be ignored.
 
 ```{r Result1}
 fit.wt.hp <- lm(mpg ~ wt + hp, data = mtcars)
-
-boxplot(resid(fit.wt.hp) ~ mtcars$am)
-title("Effect of transmission" )
-
 t <- t.test(resid(fit.wt.hp) ~ mtcars$am, var.equal = TRUE)
-t$conf[1:2]
+t
 ```
 
 ## Quantify the MPG difference between automatic and manual transmissions
-Assuming our model of `mpg ~ wt + hp`, the difference between the mean of the residuals for the groups is 0.9 mpg, with automatic transmissions showing as marginally better.
+Assuming our model of `mpg ~ wt + hp`, the difference between the mean of the residuals for the groups is -0.9 mpg, with automatic transmissions showing as marginally more efficient. Given the small sample size and the confidence interval above, this is not a significant difference.
 
 ```{r Result2}
 t$estimate["mean in group automatic"] - t$estimate["mean in group manual"]
@@ -81,10 +82,12 @@ require(knitr, quietly = TRUE)
 
 data(mtcars)
 fit.all <- lm(mpg ~ ., data = mtcars)
-kable(summary(fit.all)$coef[,c(1,4)], 
+coef.all <- summary(fit.all)$coef[,c(1,4)]
+coef.all <- coef.all[order(coef.all[,2]),]
+kable(coef.all, 
       digits = 2,
       col.names = c("Coefficient", "P-value"),
-      caption = "Coefficients and significance for each factor")
+      caption = "Coefficients and their significance for each factor")
 mtcars$am <- factor(mtcars$am, labels = c("automatic", "manual"))
 mtcars$cyl <- factor(mtcars$cyl)
 ```
@@ -108,8 +111,6 @@ fit.wt.hp.qsec <- lm(mpg ~ wt + hp + qsec, data = mtcars)
 fit.wt.hp.vs <- lm(mpg ~ wt + hp + factor(vs), data = mtcars)
 fit.wt.hp.gear <- lm(mpg ~ wt + hp + factor(gear), data = mtcars)
 fit.wt.hp.carb <- lm(mpg ~ wt + hp + factor(carb), data = mtcars)
-
-
 
 alt.terms <-c ("mpg ~ wt + am",
               "mpg ~ wt + factor(cyl)", 
@@ -146,9 +147,15 @@ kable(model.signif,
       caption = "Significance of additional factor in each model")
 ```
 
-## Appendix 3 - Residual diagnostics for mpg ~ wt + hp
+## Appendix 3: Residual diagnostics for mpg ~ wt + hp
 ```{r ResidualDiagnostics, echo = FALSE, fig.height=8}
 par(mfrow = c(2, 2))
 plot(fit.wt.hp)
 ```
 
+
+## Appendix 4: Effect of transmission on mpg, holding weight and horsepower constant
+```{r boxplot, echo = FALSE}
+boxplot(resid(fit.wt.hp) ~ mtcars$am)
+title("Effect of transmission on mpg", ylab = "mpg", sub = "Holding weight and horsepower constant")
+```
